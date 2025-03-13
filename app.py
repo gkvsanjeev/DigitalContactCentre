@@ -3,7 +3,7 @@ import urllib.request
 import json
 import os
 import ssl
-
+from dotenv import load_dotenv
 app = Flask(__name__)
 
 # Allow self-signed certificates if necessary
@@ -16,7 +16,13 @@ allowSelfSignedHttps(True)
 @app.route('/')
 def home():
     return render_template('index.html')
+load_dotenv()
 
+@app.route('/get-secrets', methods=['GET'])
+def get_secrets():
+    secrets = {key: value for key, value in os.environ.items() if key.startswith("AZURE_")}
+    return jsonify(secrets)
+    
 @app.route('/ask', methods=['POST'])
 def ask():
     

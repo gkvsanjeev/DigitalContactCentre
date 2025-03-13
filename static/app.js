@@ -58,16 +58,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const firstPanelLoading = document.querySelector("#panel1Content .loading-container")
   const secondPanelLoading = document.querySelector("#panel2Content .loading-container")
   const thirdPanelLoading = document.querySelector("#panel3Content .loading-container")
-  const fourthPanelLoading = document.querySelector("#panel4Content .loading-container")
+  const fourthPanelLoading = document.querySelector("#panel4Content .loading-container")  
   var divName ="";
+  var keys;
   const userInput = "CONVERSATION between Relationship Manager and Client (Mr. Tan) - RELATIONSHIP MANAGER: Hello Mr. Tan how are you? You makan already? CLIENT: Makan already. What about you? RELATIONSHIP MANAGER: Me too, thanks! I am calling you today because there is a new high-return investment opportunity called the Great Fund. It primarily invests in emerging markets, small-cap stocks, and alternative assets. This kind of investments has very high returns. It will make you a lot of money!  CLIENT: Sure or not? Is it going to be risky? RELATIONSHIP MANAGER: Aiyoo! Don’t worry, the risk is very minimal. The fees can be covered by the huge returns you will be making eventually. At most you will lose about 1% of your investment. CLIENT: What kind of returns are we talking about? RELATIONSHIP MANAGER: The Great Fund projects an average annual return of 20% year on year. Very shiok right? CLIENT: Hmm ok! I am interested in investing about 1 million SGD but need more information first. Oh, just to be sure, I can only afford to lose 100,000 SGD max on this, ok? RELATIONSHIP MANAGER: Ok!  This investment plan is the key to further enabling your financial freedom, with your current net worth, you can definitely afford this, and even use it as a trust fund for your grandchildren!  Once I have the paper work ready, I’ll invite you to our branch at Yio Chu Kang for signing. CLIENT: Thanks! I'll wait for the paperwork. Bye!"
   
-  callSummary()
-  trainingSummary()
-  rmGrading()
-  redoneConversation()
+  fetch("/get-secrets")
+  .then(response => response.json())
+  .then(data => {
+    console.log("All Secrets:", data);
+    keys = data;
+    callSummary(keys.AZURE_CALL_SUMMARY_ENDPOINT, keys.AZURE_CALL_SUMMARY_API_KEY);
+    trainingSummary(keys.AZURE_TRAINING_SUMMARY_ENDPOINT,keys.AZURE_TRAINING_SUMMARY_API_KEY);
+    rmGrading(keys.AZURE_RMGRADING_ENDPOINT, keys.AZURE_RMGRADING_API_KEY);
+    redoneConversation(keys.AZURE_CONVERSATION_ENDPOINT, keys.AZURE_CONVERSATION_API_KEY);
+  })
+  .catch(error => console.error("Error fetching secrets:", error)); 
 
-  
   // Toggle chat panel
   chatIcon.addEventListener("click", () => {
     chatPanel.classList.toggle("hidden")
@@ -90,60 +97,73 @@ document.addEventListener("DOMContentLoaded", () => {
     chatMessages.scrollTop = chatMessages.scrollHeight
   }
 
-  function callSummary(){
-    divName = 'divCallSummary' 
-    showLoadingImage(divName)
-    const endPoint = "https://bankcallsummaryapi.eastus2.inference.ml.azure.com/score";
-    const apiKey = "6aUGLhpcFSUxOmTTFSCqDoAogSPEhUD2whNJu0QNtXFjKN3sd74KJQQJ99BCAAAAAAAAAAAAINFRAZML3WEc";
-    const finalUserInput = userInput + "\nProvide a summary of the conversation using a table only - Use headings, format everything into ONE NEAT VERTICAL TABLE FIELDS BELOW EACH OTHER, with the relevant fields (Topic, Customer, Product, Product Details from Factsheet, RM’s pitch, Customer’s response, Follow-up (if any)). The 2 column headers for the table should be Field and Description. Refer to the text in the conversation and for Product details, refer to the Fund Factsheet.";
+  function callSummary(endPoint, apiKey){
+    if(endPoint && apiKey){
+      divName = 'divCallSummary' 
+      showLoadingImage(divName)
+      
+      const finalUserInput = userInput + "\nProvide a summary of the conversation using a table only - Use headings, format everything into ONE NEAT VERTICAL TABLE FIELDS BELOW EACH OTHER, with the relevant fields (Topic, Customer, Product, Product Details from Factsheet, RM’s pitch, Customer’s response, Follow-up (if any)). The 2 column headers for the table should be Field and Description. Refer to the text in the conversation and for Product details, refer to the Fund Factsheet.";
+      
+      callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {
+        $('#divCallSummary').append(formatResponse(result))      
+        hideLoadingImage('divCallSummary')
+      });
+    }
+    else{
+      $('#divCallSummary').append("Please provide the end point and api key to get the response")
+    }
     
-    callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {
-      $('#divCallSummary').append(formatResponse(result))      
-      hideLoadingImage('divCallSummary')
-    });
-    
-  }
-
-  function trainingSummary(){
-    divName = 'divTrainingModule'
-    showLoadingImage(divName)
-    const endPoint = "https://trainingprogram.eastus2.inference.ml.azure.com/score";
-    const apiKey = "3ts1E6u7256t2KHitZqiMelvNCP5ywMqFIHT2YbS30WT2TBRHakeJQQJ99BCAAAAAAAAAAAAINFRAZML4V0a";
-    const finalUserInput = userInput + "\nGrade the above RM-customer conversation (no need to show the grading) and provide training recommendations for the RM against this list of training programs. Show the Training plan in a neat table format.";
-    
-    callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {
-      var output = formatResponse(result)
-      $('#divTrainingModule').append(output);
-      hideLoadingImage('divTrainingModule')
-    });
     
   }
 
-  function rmGrading(){
-    divName = 'divrmGrading'
-    showLoadingImage(divName)
-    const endPoint = "https://rmgrading.eastus2.inference.ml.azure.com/score";
-    const apiKey = "4OJOyNk8Y1Xn0JRSsyIxXEMRQ0iNhdQ5D0rxjZuMTRRamUAVIB8KJQQJ99BCAAAAAAAAAAAAINFRAZML3YIB";
-    const finalUserInput = userInput + "\nGrade the RM’s performance in the conversation against the 10 standards in the Bank’s policy document provided above.";
-    
-    callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {      
-      $('#divrmGrading').append(formatResponse(result));
-      hideLoadingImage('divrmGrading')
-    });
+  function trainingSummary(endPoint, apiKey){
+    if(endPoint && apiKey){
+      divName = 'divTrainingModule'
+      showLoadingImage(divName)      
+      const finalUserInput = userInput + "\nGrade the above RM-customer conversation (no need to show the grading) and provide training recommendations for the RM against this list of training programs. Show the Training plan in a neat table format.";
+      
+      callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {
+        var output = formatResponse(result)
+        $('#divTrainingModule').append(output);
+        hideLoadingImage('divTrainingModule')
+      });
+    }
+    else{
+      $('#divTrainingModule').append("Please provide the end point and api key to get the response")
+    }
   }
 
-  function redoneConversation(){
-    var divName = 'divredoneConversation'
-    showLoadingImage(divName)
-    const endPoint = "https://redoneconversation.eastus2.inference.ml.azure.com/score";
-    const apiKey = "CjJCwCMqNCLKBV4lwWIq6lIxAsW2f9xkxQhlBbMMP5DrjPo82PveJQQJ99BCAAAAAAAAAAAAINFRAZML2mYc";
-    const finalUserInput = userInput + "\nRedo the above conversation in a compliant manner, and display it in a neat manner with a header at the start (in markdown format)";
-    
-    callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {
-      // console.log(formatResult(result))
-      $('#divredoneConversation').append(formatMarkdownResponse(result));
-      hideLoadingImage('divredoneConversation')
-    });
+  function rmGrading(endPoint, apiKey){
+    if(endPoint && apiKey){
+      divName = 'divrmGrading'
+      showLoadingImage(divName)      
+      const finalUserInput = userInput + "\nGrade the RM’s performance in the conversation against the 10 standards in the Bank’s policy document provided above.";
+      
+      callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {      
+        $('#divrmGrading').append(formatResponse(result));
+        hideLoadingImage('divrmGrading')
+      });
+    }
+    else{
+      $('#divrmGrading').append("Please provide the end point and api key to get the response")
+    }
+  }
+
+  function redoneConversation(endPoint, apiKey){
+    if(endPoint && apiKey){
+      var divName = 'divredoneConversation'
+      showLoadingImage(divName)      
+      const finalUserInput = userInput + "\nRedo the above conversation in a compliant manner, and display it in a neat manner with a header at the start (in markdown format)";
+      
+      callRAGEndpoint(finalUserInput, endPoint, apiKey, divName, function(result) {
+        // console.log(formatResult(result))
+        $('#divredoneConversation').append(formatMarkdownResponse(result));
+        hideLoadingImage('divredoneConversation')
+      });
+    }
+    else{
+      $('#divredoneConversation').append("Please provide the end point and api key to get the response")
+    }
   }
 
   // Send message function
@@ -188,15 +208,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const typingIndicator = createTypingIndicator()
       chatMessages.appendChild(typingIndicator)
       scrollChatToBottom()
-      
-      const endPoint = "https://chatbot.eastus2.inference.ml.azure.com/score";
-      const apiKey = "1rRTRaG3TOZcxf3ZXRvG4OXlPc8gP8HtpUjLhrCLRR74Eqdd13lCJQQJ99BCAAAAAAAAAAAAINFRAZML1Ujs";
-      callRAGEndpoint(message, endPoint, apiKey, 'chatMessages', function(result) {
-        chatMessages.removeChild(typingIndicator)
-        addMessage(result);
-        
-      });
-
+      if(keys.AZURE_CHATBOT_ENDPOINT && keys.AZURE_CHATBOT_API_KEY){
+        callRAGEndpoint(message, keys.AZURE_CHATBOT_ENDPOINT, keys.AZURE_CHATBOT_API_KEY, 'chatMessages', function(result) {
+          chatMessages.removeChild(typingIndicator)
+          addMessage(result);          
+        });
+      }
+      else{
+        $('#chatMessages').append("Please provide the end point and api key to get the response")
+      }
     }
   }
 
